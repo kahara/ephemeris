@@ -10,4 +10,4 @@ ephemeris.o:	ephemeris.c
 		gcc -g -c ephemeris.c -o ephemeris.o
 
 ephemeris:	ephemeris.o
-		gcc -g ephemeris.o -o ephemeris
+		gcc -g ephemeris.o -o ephemeris -lnova
