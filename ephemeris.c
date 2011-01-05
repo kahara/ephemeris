@@ -1,22 +1,30 @@
 #include <stdio.h>
 #include <math.h>
 #include <libnova/solar.h>
+#include <libnova/lunar.h>
 #include <libnova/julian_day.h>
 #include <libnova/transform.h>
 #include <libnova/utility.h>
 
 /*
-  Return sunrise, -transit and -set times for this year, previous
-  year and the following year (i.e. if query takes place in 2011,
-  respond with times for 2010, 2011 and 2012). Also include sun's
-  altitude at transit (among other things).
+  Return solar and lunar rise, transit and set times for this year,
+  previous year and the following year (i.e. if query takes place
+  in 2011, respond with data for 2010, 2011 and 2012). Also include
+  sun and moon altitude at their transits &c.
+*/
 
+/*
   Default location (Kotka, Finland) is used if none is provided.
 */
 #define DEFAULT_LNG 26.94663
 #define DEFAULT_LAT 60.46636
 
 #define HTTP_HEADER "Content-Type: application/json;charset=utf-8\n\n"
+
+/*
+  XXX IMPLEMENT CHACHING. Max age should be at the end of current year.
+  Header format: "Expires: Sat, 31 Dec 2011 23:59:59 GMT"
+ */
 
 char * jsondate(struct ln_date* date, char * buf);
 
@@ -33,6 +41,7 @@ int main(int argc, char **argv)
   struct ln_equ_posn equ;
   struct ln_helio_posn pos;
   struct ln_hrz_posn hrz;
+  struct ln_rect_posn rect;
 
   int i;
 
@@ -70,7 +79,7 @@ int main(int argc, char **argv)
 
   /* XXX implement caching of results */
 
-  for(i=(int)start; i < (int)end; i++) {
+  for(i=(int)start; i < (int)end+1; i++) {
 
     ln_get_solar_rst(jd, &observer, &rst);
     ln_get_date(rst.rise, &rise);
@@ -84,25 +93,43 @@ int main(int argc, char **argv)
     printf("\t{\n");
 
     jsondate(&date, ds);
-    printf("\t\t\"date\":%s,\n", ds);
+    printf("\t\t\"date\": %s,\n", ds);
+
+    printf("\t\t\"sun\": {\n");
 
     jsondate(&rise, ds);
-    printf("\t\t\"rise\":%s,\n", ds);
-
+    printf("\t\t\t\"rise\": %s,\n", ds);
     jsondate(&transit, ds);
-    printf("\t\t\"transit\":%s,\n", ds);
-
+    printf("\t\t\t\"transit\": %s,\n", ds);
     jsondate(&set, ds);
-    printf("\t\t\"set\":%s,\n", ds);
+    printf("\t\t\t\"set\": %s,\n", ds);
 
     ln_get_solar_equ_coords(rst.transit, &equ);
     ln_get_solar_geom_coords(rst.transit, &pos);
 
     ln_get_hrz_from_equ(&equ, &observer, rst.transit, &hrz);
 
-    printf("\t\t\"ra\":%f,\"dec\":%f,\"lng\":%f,\"lat\":%f,\"vect\":%f,\"alt\":%f,\"az\":%f\n", equ.ra, equ.dec, pos.L, pos.B, pos.R, hrz.alt, hrz.az);
+    printf("\t\t\t\"alt\": %f,\"az\": %f\n", hrz.alt, hrz.az);
 
-    printf("\t}%c\n", i < ((int)end-1) ? ',' : ' ' );
+    printf("\t\t},\n");
+
+    printf("\t\t\"moon\": {\n");
+
+    /*ln_get_lunar_equ_coords (jd, &equ);
+      ln_get_lunar_geo_posn(jd, &rect, 0.0005);*/
+
+    /*ln_get_hrz_from_equ(&equ, &observer, rst.transit, &hrz);*/
+
+    printf("\t\t\t\"phase\": %f\n", ln_get_lunar_phase(jd)); /*, rect.X, rect.Y, rect.Z); */ /* , hrz.alt, hrz.az); */
+
+    /*
+      Note: -> 180 new moon, -> 0 full moon.
+      See also: http://www.usno.navy.mil/USNO/astronomical-applications/astronomical-information-center/phases-percent-moon 
+     */
+
+    printf("\t\t}\n");
+
+    printf("\t}%c\n", i < ((int)end) ? ',' : ' ' );
   }
 
   printf("]");
