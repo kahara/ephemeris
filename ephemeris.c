@@ -1,6 +1,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <limits.h>
+#include <sys/stat.h>
+#include <sys/types.h>
 #include <math.h>
 #include <libnova/solar.h>
 #include <libnova/lunar.h>
@@ -24,9 +27,11 @@
 #define HTTP_HEADER "Content-Type: application/json;charset=utf-8\n\n"
 
 /*
-  XXX IMPLEMENT CHACHING. Max age should be at the end of current year.
-  Header format: "Expires: Sat, 31 Dec 2011 23:59:59 GMT"
+  The following file is generated at build time (see Makefile). It
+  includes MD5 checksum of this file (ephemeris.c), and is used to
+  implement caching.
  */
+#include "fingerprint.h"
 
 char * jsondate(struct ln_date* date, char * buf);
 
@@ -47,6 +52,11 @@ int main(int argc, char **argv)
 
   int i;
 
+  char filename[PATH_MAX+1];
+  FILE *fp;
+  int n;
+  char buf[1024];
+
   char * query = getenv("QUERY_STRING"); 
   char * pair;
   char * key;
@@ -55,7 +65,7 @@ int main(int argc, char **argv)
   if(strlen(query) > 0) {
     pair = strtok(query,"&");
     while(pair) {
-      key = (char *)malloc(strlen(pair));
+      key = (char *)malloc(strlen(pair)+1);
       sscanf(pair, "%[^=]=%lf", key, &value);
       if(!strcmp(key, "lat")) {
 	req_lat = value;
@@ -92,9 +102,15 @@ int main(int argc, char **argv)
 
   puts(HTTP_HEADER);
 
-  printf("[\n");
+  sprintf(filename, "/tmp/ephemeris-%s", fingerprint);
+  mkdir(filename, 0700);
+  sprintf(filename, "/tmp/ephemeris-%s/%f-%f", fingerprint, req_lat, req_lng);
+  fp = fopen(filename, "w");
+  if(fp == NULL) {
+    return 1;
+  }
 
-  /* XXX implement caching of results */
+  fprintf(fp, "[\n");
 
   for(i=(int)start; i < (int)end+1; i++) {
 
@@ -105,48 +121,59 @@ int main(int argc, char **argv)
       
     jd += 1.0;
 
-    printf("\t{\n");
-    printf("\t\t\"sun\": {\n");
+    fprintf(fp, "\t{\n");
+
+    ln_get_date(jd, &date);    
+    jsondate(&date, ds);
+    fprintf(fp, "\t\t\"now\": { %s },\n", ds);
+    
+    fprintf(fp, "\t\t\"sun\": {\n");
 
     ln_get_solar_equ_coords(jd, &equ);
     ln_get_hrz_from_equ(&equ, &observer, jd, &hrz);
-    ln_get_date(jd, &date);
-    jsondate(&date, ds);
-    printf("\t\t\t\"now\": { %s, \"alt\": %f },\n", ds, hrz.alt);
+
+    fprintf(fp, "\t\t\t\"alt\": %f,\n", hrz.alt);
 
     jsondate(&rise, ds);
-    printf("\t\t\t\"rise\": { %s },\n", ds);
+    fprintf(fp, "\t\t\t\"rise\": { %s },\n", ds);
 
     ln_get_solar_equ_coords(rst.transit, &equ);
     ln_get_solar_geom_coords(rst.transit, &pos);
     ln_get_hrz_from_equ(&equ, &observer, rst.transit, &hrz);
     jsondate(&transit, ds);
-    printf("\t\t\t\"transit\": { %s, \"alt\": %f },\n", ds, hrz.alt);
+    fprintf(fp, "\t\t\t\"transit\": { %s, \"alt\": %f },\n", ds, hrz.alt);
 
     jsondate(&set, ds);
-    printf("\t\t\t\"set\": { %s }\n", ds);
+    fprintf(fp, "\t\t\t\"set\": { %s }\n", ds);
 
-    printf("\t\t},\n");
-    printf("\t\t\"moon\": {\n");
-
-    jsondate(&date, ds);    
-    printf("\t\t\t \"now\": { %s, \"phase\": %f }\n", ds, ln_get_lunar_phase(jd));
+    fprintf(fp, "\t\t},\n");
 
     /*
-      Note: -> 180 new moon, -> 0 full moon.
+      Note: -> 180, new moon, -> 0, full moon.
       See also: http://www.usno.navy.mil/USNO/astronomical-applications/astronomical-information-center/phases-percent-moon 
      */
+    jsondate(&date, ds);    
+    fprintf(fp, "\t\tmoon: { \"phase\": %f }\n", ln_get_lunar_phase(jd));
 
-    printf("\t\t}\n");
-
-    printf("\t}%c\n", i < ((int)end) ? ',' : ' ' );
+    fprintf(fp, "\t}%c\n", i < ((int)end) ? ',' : ' ' );
   }
 
-  printf("]");
+  fprintf(fp, "]");
+
+  fclose(fp);
+
+  if((fp = fopen(filename, "r")) == NULL) {
+    return 1;
+  }
+  while((n = fread(buf, 1, sizeof(buf), fp)) > 0) {
+    fwrite(buf, 1, n, stdout);
+  }
+  fclose(fp);
+
 
   return 0;
 }
-
+ 
 char * jsondate(struct ln_date* date, char * buf)
 {
   sprintf(buf, "\"year\": %d, \"month\": %d, \"day\": %d, \"hour\": %d, \"minute\": %d, \"second\": %f", date->years, date->months, date->days, date->hours, date->minutes, date->seconds);
