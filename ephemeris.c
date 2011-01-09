@@ -24,9 +24,6 @@
 #define DEFAULT_LNG 26.899722
 #define DEFAULT_LAT 60.469722
 
-/* Files older than MAX_AGE seconds are not served from cache. */
-#define MAX_AGE (60 * 15)
-
 #define HTTP_HEADER "Content-Type: application/json;charset=us/ascii;\n\n"
 
 /*
@@ -36,6 +33,8 @@
  */
 #include "fingerprint.h"
 
+/* Files older than MAX_AGE seconds are not served from cache. */
+#define MAX_AGE (60 * 5)
 #define CACHE (1)
 
 char * jsondate(struct ln_date* date, char * buf);
@@ -69,7 +68,7 @@ int main(int argc, char **argv)
   char * key;
   double value;
 
-  if(strlen(query) > 0) {
+  if(query && strlen(query) > 0) {
     pair = strtok(query,"&");
     while(pair) {
       key = (char *)malloc(strlen(pair)+1);
@@ -112,7 +111,8 @@ int main(int argc, char **argv)
     return 1;
   }
 
-  jd = ln_get_julian_from_sys();  
+  jd = ln_get_julian_from_sys();
+
   ln_get_date(jd, &date);
 
   date.years -= 1;
@@ -181,7 +181,10 @@ int main(int argc, char **argv)
     prevmoonphase = ln_get_lunar_phase(jd-0.00001);
     moonphase = ln_get_lunar_phase(jd);
 
-    fprintf(fp, "\t\t\"moon\": { \"phase\": %f, \"waxing\": %s }\n", moonphase, (moonphase-prevmoonphase) < 0 ? "true" : "false");
+    ln_get_lunar_equ_coords(jd, &equ);
+    ln_get_hrz_from_equ(&equ, &observer, jd, &hrz);
+    
+    fprintf(fp, "\t\t\"moon\": { \"phase\": %f, \"waxing\": %s, \"alt\": %f }\n", moonphase, (moonphase-prevmoonphase) < 0 ? "true" : "false", hrz.alt);
 
     fprintf(fp, "\t}%c\n", i < ((int)end+1) ? ',' : ' ' );
 
@@ -205,7 +208,9 @@ int main(int argc, char **argv)
  
 char * jsondate(struct ln_date* date, char * buf)
 {
-  sprintf(buf, "\"year\": %d, \"month\": %d, \"day\": %d, \"hour\": %d, \"minute\": %d, \"second\": %f", date->years, date->months, date->days, date->hours, date->minutes, date->seconds);
+  double jd = ln_get_julian_day(date);
+  
+  sprintf(buf, "\"jd\": %f, \"year\": %d, \"month\": %d, \"day\": %d, \"hour\": %d, \"minute\": %d, \"second\": %f", jd, date->years, date->months, date->days, date->hours, date->minutes, date->seconds);
 
   return buf;
 }
