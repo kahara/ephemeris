@@ -25,7 +25,7 @@
 #define DEFAULT_LAT 60.469722
 
 /* Files older than MAX_AGE seconds are not served from cache. */
-#define MAX_AGE (60 * 5)
+#define MAX_AGE (60 * 15)
 
 #define HTTP_HEADER "Content-Type: application/json;charset=utf-8\n\n"
 
@@ -35,6 +35,8 @@
   used in caching.
  */
 #include "fingerprint.h"
+
+#define CACHE (0)
 
 char * jsondate(struct ln_date* date, char * buf);
 
@@ -51,7 +53,6 @@ int main(int argc, char **argv)
   struct ln_equ_posn equ;
   struct ln_helio_posn pos;
   struct ln_hrz_posn hrz;
-  struct ln_rect_posn rect;
   double moonphase, prevmoonphase;
 
   int i;
@@ -86,36 +87,21 @@ int main(int argc, char **argv)
   observer.lat = req_lat;
   observer.lng = req_lng;
 
-  jd = ln_get_julian_from_sys();  
-  ln_get_date(jd, &date);
-
-  date.years -= 1;
-  date.months = 1;
-  date.days = 1;
-  date.days -= 1;
-  start = ln_get_julian_day(&date);
-
-  date.years += 2;
-  date.months = 12;
-  date.days = 31;
-  date.days -= 1;
-  end = ln_get_julian_day(&date);
-
-  jd = start;
-
   puts(HTTP_HEADER);
 
-  sprintf(filename, "/tmp/ephemeris-%s/%f-%f", fingerprint, req_lat, req_lng);
-  if(stat(filename, &filestat) == 0 && (fp = fopen(filename, "r")) != NULL) {
-    gettimeofday(&now, NULL);
-    if((now.tv_sec - filestat.st_mtime) > MAX_AGE) {
-      fclose(fp);
-    } else {
-      while((n = fread(buf, 1, sizeof(buf), fp)) > 0) {
-	fwrite(buf, 1, n, stdout);
+  if(CACHE) {
+    sprintf(filename, "/tmp/ephemeris-%s/%f-%f", fingerprint, req_lat, req_lng);
+    if(stat(filename, &filestat) == 0 && (fp = fopen(filename, "r")) != NULL) {
+      gettimeofday(&now, NULL);
+      if((now.tv_sec - filestat.st_mtime) > MAX_AGE) {
+	fclose(fp);
+      } else {
+	while((n = fread(buf, 1, sizeof(buf), fp)) > 0) {
+	  fwrite(buf, 1, n, stdout);
+	}
+	fclose(fp);
+	return 0;
       }
-      fclose(fp);
-      return 0;
     }
   }
   
@@ -126,15 +112,30 @@ int main(int argc, char **argv)
     return 1;
   }
 
+  jd = ln_get_julian_from_sys();  
+  ln_get_date(jd, &date);
+
+  date.years -= 1;
+  date.months = 1;
+  date.days = 1;
+  /*date.days -= 1;*/
+  start = ln_get_julian_day(&date);
+
+  jd = start;
+
+  date.years += 2;
+  date.months = 12;
+  date.days = 31;
+  date.days -= 1;
+  end = ln_get_julian_day(&date);
+
   fprintf(fp, "[\n");
 
-  for(i=(int)start; i < (int)end+1; i++) {
+  for(i=(int)start; i <= (int)end+1; i++) {
     ln_get_solar_rst(jd, &observer, &rst);
     ln_get_date(rst.rise, &rise);
     ln_get_date(rst.set, &set);
     ln_get_date(rst.transit, &transit);
-      
-    jd += 1.0;
 
     fprintf(fp, "\t{\n");
 
@@ -180,11 +181,11 @@ int main(int argc, char **argv)
     prevmoonphase = ln_get_lunar_phase(jd-0.00001);
     moonphase = ln_get_lunar_phase(jd);
 
-    fprintf(fp, "\t\tmoon: { \"phase\": %f, \"waxing\": %s }\n", moonphase, (moonphase-prevmoonphase) < 0 ? "true" : "false");
-
-    /*fprintf(fp, "\t\tmoon: { \"phase\": %f, \"lastphase\": %f }\n", ln_get_lunar_phase(jd), ln_get_lunar_phase(jd-0.00001));*/
+    fprintf(fp, "\t\t\"moon\": { \"phase\": %f, \"waxing\": %s }\n", moonphase, (moonphase-prevmoonphase) < 0 ? "true" : "false");
 
     fprintf(fp, "\t}%c\n", i < ((int)end) ? ',' : ' ' );
+
+    jd += 1.0;
   }
 
   fprintf(fp, "]");
@@ -198,7 +199,6 @@ int main(int argc, char **argv)
     fwrite(buf, 1, n, stdout);
   }
   fclose(fp);
-
 
   return 0;
 }
