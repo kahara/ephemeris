@@ -27,7 +27,7 @@
 /* Files older than MAX_AGE seconds are not served from cache. */
 #define MAX_AGE (60 * 15)
 
-#define HTTP_HEADER "Content-Type: application/json;charset=utf-8\n\n"
+#define HTTP_HEADER "Content-Type: application/json;charset=us/ascii;\n\n"
 
 /*
   The following file is generated at build time (see Makefile). It
@@ -36,7 +36,7 @@
  */
 #include "fingerprint.h"
 
-#define CACHE (0)
+#define CACHE (1)
 
 char * jsondate(struct ln_date* date, char * buf);
 
@@ -87,7 +87,7 @@ int main(int argc, char **argv)
   observer.lat = req_lat;
   observer.lng = req_lng;
 
-  puts(HTTP_HEADER);
+  printf("%s", HTTP_HEADER);
 
   if(CACHE) {
     sprintf(filename, "/tmp/ephemeris-%s/%f-%f", fingerprint, req_lat, req_lng);
@@ -183,7 +183,7 @@ int main(int argc, char **argv)
 
     fprintf(fp, "\t\t\"moon\": { \"phase\": %f, \"waxing\": %s }\n", moonphase, (moonphase-prevmoonphase) < 0 ? "true" : "false");
 
-    fprintf(fp, "\t}%c\n", i < ((int)end) ? ',' : ' ' );
+    fprintf(fp, "\t}%c\n", i < ((int)end+1) ? ',' : ' ' );
 
     jd += 1.0;
   }
