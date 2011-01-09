@@ -2,8 +2,10 @@
 #include <stdlib.h>
 #include <string.h>
 #include <limits.h>
+#include <unistd.h>
 #include <sys/stat.h>
 #include <sys/types.h>
+#include <sys/time.h>
 #include <math.h>
 #include <libnova/solar.h>
 #include <libnova/lunar.h>
@@ -12,24 +14,25 @@
 #include <libnova/utility.h>
 
 /*
-  Return solar and lunar rise, transit and set times for this year,
+  Return rise, transit and set times of the sun for this year,
   previous year and the following year (i.e. if query takes place
   in 2011, respond with data for 2010, 2011 and 2012). Also include
-  sun and moon altitude at their transits &c.
+  current and at-transit sun altitude, as well as current moon phase.
 */
 
-/*
-  Default location (Kotka, Finland) is used if none is provided.
-*/
-#define DEFAULT_LNG 26.94663
-#define DEFAULT_LAT 60.46636
+/* Default location (Kotka, Finland) is used if none is provided. */
+#define DEFAULT_LNG 26.899722
+#define DEFAULT_LAT 60.469722
+
+/* Files older than MAX_AGE seconds are not served from cache. */
+#define MAX_AGE (60 * 5)
 
 #define HTTP_HEADER "Content-Type: application/json;charset=utf-8\n\n"
 
 /*
   The following file is generated at build time (see Makefile). It
-  includes MD5 checksum of this file (ephemeris.c), and is used to
-  implement caching.
+  includes MD5 checksum of this file (i.e. "ephemeris.c"), and is
+  used in caching.
  */
 #include "fingerprint.h"
 
@@ -54,6 +57,8 @@ int main(int argc, char **argv)
 
   char filename[PATH_MAX+1];
   FILE *fp;
+  struct stat filestat;
+  struct timeval now;
   int n;
   char buf[1024];
 
@@ -87,9 +92,6 @@ int main(int argc, char **argv)
   date.months = 1;
   date.days = 1;
   date.days -= 1;
-  /*date.hours = 12;
-  date.minutes = 0;
-  date.seconds = 0.0;*/
   start = ln_get_julian_day(&date);
 
   date.years += 2;
@@ -102,18 +104,30 @@ int main(int argc, char **argv)
 
   puts(HTTP_HEADER);
 
+  sprintf(filename, "/tmp/ephemeris-%s/%f-%f", fingerprint, req_lat, req_lng);
+  if(stat(filename, &filestat) == 0 && (fp = fopen(filename, "r")) != NULL) {
+    gettimeofday(&now, NULL);
+    if((now.tv_sec - filestat.st_mtime) > MAX_AGE) {
+      fclose(fp);
+    } else {
+      while((n = fread(buf, 1, sizeof(buf), fp)) > 0) {
+	fwrite(buf, 1, n, stdout);
+      }
+      fclose(fp);
+      return 0;
+    }
+  }
+  
   sprintf(filename, "/tmp/ephemeris-%s", fingerprint);
   mkdir(filename, 0700);
   sprintf(filename, "/tmp/ephemeris-%s/%f-%f", fingerprint, req_lat, req_lng);
-  fp = fopen(filename, "w");
-  if(fp == NULL) {
+  if((fp = fopen(filename, "w")) == NULL) {
     return 1;
   }
 
   fprintf(fp, "[\n");
 
   for(i=(int)start; i < (int)end+1; i++) {
-
     ln_get_solar_rst(jd, &observer, &rst);
     ln_get_date(rst.rise, &rise);
     ln_get_date(rst.set, &set);
@@ -148,10 +162,19 @@ int main(int argc, char **argv)
 
     fprintf(fp, "\t\t},\n");
 
-    /*
-      Note: -> 180, new moon, -> 0, full moon.
-      See also: http://www.usno.navy.mil/USNO/astronomical-applications/astronomical-information-center/phases-percent-moon 
-     */
+    /*  0° Full moon
+       45° Waning gibbous
+       90° Last quarter
+      135° Waning crescent
+      180° New moon
+      135° Waxing crescent
+       90° First quarter
+       45° Waxing gibbous
+        0° Full moon
+
+      http://www.usno.navy.mil/USNO/astronomical-applications/astronomical-information-center/phases-percent-moon 
+      http://en.wikipedia.org/wiki/Phase_angle_(astronomy)
+    */
     jsondate(&date, ds);    
     fprintf(fp, "\t\tmoon: { \"phase\": %f }\n", ln_get_lunar_phase(jd));
 
