@@ -52,6 +52,7 @@ int main(int argc, char **argv)
   struct ln_helio_posn pos;
   struct ln_hrz_posn hrz;
   struct ln_rect_posn rect;
+  double moonphase, prevmoonphase;
 
   int i;
 
@@ -175,8 +176,13 @@ int main(int argc, char **argv)
       http://www.usno.navy.mil/USNO/astronomical-applications/astronomical-information-center/phases-percent-moon 
       http://en.wikipedia.org/wiki/Phase_angle_(astronomy)
     */
-    jsondate(&date, ds);    
-    fprintf(fp, "\t\tmoon: { \"phase\": %f }\n", ln_get_lunar_phase(jd));
+
+    prevmoonphase = ln_get_lunar_phase(jd-0.00001);
+    moonphase = ln_get_lunar_phase(jd);
+
+    fprintf(fp, "\t\tmoon: { \"phase\": %f, \"waxing\": %s }\n", moonphase, (moonphase-prevmoonphase) < 0 ? "true" : "false");
+
+    /*fprintf(fp, "\t\tmoon: { \"phase\": %f, \"lastphase\": %f }\n", ln_get_lunar_phase(jd), ln_get_lunar_phase(jd-0.00001));*/
 
     fprintf(fp, "\t}%c\n", i < ((int)end) ? ',' : ' ' );
   }
