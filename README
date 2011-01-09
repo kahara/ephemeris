@@ -1,0 +1,7 @@
+Ephemeris generates a table in JSON format that contains:
+
+- rise, transit and set times for sun
+- current and at-transit sun altitude
+- current moon phase and wether the moon is waxing or waning
+
+Table includes data for this year, previous year and following year, i.e. if query takes place in 2011, generated table includes data for 2010, 2011 and 2012.
