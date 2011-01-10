@@ -14,10 +14,9 @@
 #include <libnova/utility.h>
 
 /*
-  Return rise, transit and set times of the sun for this year,
-  previous year and the following year (i.e. if query takes place
-  in 2011, respond with data for 2010, 2011 and 2012). Also include
-  current and at-transit sun altitude, as well as current moon phase.
+  Return rise, transit and set times of the sun for previous,
+  current and next month. Also include current and at-transit
+  sun altitude, as well as current moon phase and altitude.
 */
 
 /* Default location (Kotka, Finland) is used if none is provided. */
@@ -115,19 +114,15 @@ int main(int argc, char **argv)
 
   ln_get_date(jd, &date);
 
-  date.years -= 1;
-  date.months = 1;
+  date.months -= 1;
   date.days = 1;
-  /*date.days -= 1;*/
   start = ln_get_julian_day(&date);
 
   jd = start;
 
-  date.years += 2;
-  date.months = 12;
-  date.days = 31;
-  date.days -= 1;
-  end = ln_get_julian_day(&date);
+  date.months += 3;
+  date.days = 1;
+  end = ln_get_julian_day(&date) - 2.0;
 
   fprintf(fp, "[\n");
 
