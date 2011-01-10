@@ -33,7 +33,7 @@
 #include "fingerprint.h"
 
 /* Files older than MAX_AGE seconds are not served from cache. */
-#define MAX_AGE (60 * 5)
+#define MAX_AGE (60)
 #define CACHE (1)
 
 char * jsondate(struct ln_date* date, char * buf);
@@ -44,7 +44,7 @@ int main(int argc, char **argv)
 
   char ds[1024];
 
-  double jd, start, end;
+  double jd, start, end, tmp;
   struct ln_lnlat_posn observer;
   struct ln_date date, rise, set, transit;
   struct ln_rst_time rst;
@@ -68,7 +68,7 @@ int main(int argc, char **argv)
   double value;
 
   if(query && strlen(query) > 0) {
-    pair = strtok(query,"&");
+    pair = strtok(query, "&");
     while(pair) {
       key = (char *)malloc(strlen(pair)+1);
       sscanf(pair, "%[^=]=%lf", key, &value);
@@ -78,7 +78,7 @@ int main(int argc, char **argv)
 	req_lng = value;
       }
       free(key);
-      pair = strtok((char *)0,"&");
+      pair = strtok((char *)0, "&");
     }    
   }
 
@@ -140,10 +140,14 @@ int main(int argc, char **argv)
     
     fprintf(fp, "\t\t\"sun\": {\n");
 
+    ln_get_solar_equ_coords(jd-0.00001, &equ);
+    ln_get_hrz_from_equ(&equ, &observer, jd-0.00001, &hrz);
+    tmp = hrz.alt;
+
     ln_get_solar_equ_coords(jd, &equ);
     ln_get_hrz_from_equ(&equ, &observer, jd, &hrz);
 
-    fprintf(fp, "\t\t\t\"alt\": %f,\n", hrz.alt);
+    fprintf(fp, "\t\t\t\"alt\": %f, \"rising\": %s,\n", hrz.alt, (hrz.alt-tmp) > 0 ? "true" : "false");
 
     jsondate(&rise, ds);
     fprintf(fp, "\t\t\t\"rise\": { %s },\n", ds);
@@ -176,10 +180,14 @@ int main(int argc, char **argv)
     prevmoonphase = ln_get_lunar_phase(jd-0.00001);
     moonphase = ln_get_lunar_phase(jd);
 
+    ln_get_lunar_equ_coords(jd-0.00001, &equ);
+    ln_get_hrz_from_equ(&equ, &observer, jd-0.00001, &hrz);
+    tmp = hrz.alt;
+
     ln_get_lunar_equ_coords(jd, &equ);
     ln_get_hrz_from_equ(&equ, &observer, jd, &hrz);
-    
-    fprintf(fp, "\t\t\"moon\": { \"phase\": %f, \"waxing\": %s, \"alt\": %f }\n", moonphase, (moonphase-prevmoonphase) < 0 ? "true" : "false", hrz.alt);
+
+    fprintf(fp, "\t\t\"moon\": { \"phase\": %f, \"waxing\": %s, \"alt\": %f, \"rising\": %s }\n", moonphase, (moonphase-prevmoonphase) < 0 ? "true" : "false", hrz.alt, (hrz.alt-tmp) > 0 ? "true" : "false");
 
     fprintf(fp, "\t}%c\n", i < ((int)end+1) ? ',' : ' ' );
 
