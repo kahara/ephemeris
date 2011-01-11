@@ -2,8 +2,9 @@ Ephemeris generates a table in JSON format that contains:
 
 - rise, transit and set times for sun
 - current and at-transit sun altitude
-- current moon phase and wether the moon is waxing or waning
+- current moon phase and wheter the moon is waxing or waning
 - current moon altitude
+- rising/falling flag for both sun and moon
 
 Table includes data for previous, current and next month.
 
