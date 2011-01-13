@@ -127,7 +127,15 @@ int main(int argc, char **argv)
   fprintf(fp, "[\n");
 
   for(i=(int)start; i <= (int)end+1; i++) {
-    ln_get_solar_rst((modf(jd, &tmp) <= 0.5) ? jd-1.0 : jd, &observer, &rst);
+    ln_get_date(jd, &date);    
+    
+    ln_get_solar_rst(jd, &observer, &rst);
+    ln_get_date(rst.rise, &rise);
+
+    if(rise.days != date.days) {
+      ln_get_solar_rst(jd-1.0, &observer, &rst);
+    }
+
     ln_get_date(rst.rise, &rise);
     ln_get_date(rst.set, &set);
     ln_get_date(rst.transit, &transit);
