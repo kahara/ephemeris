@@ -19,9 +19,9 @@
   sun altitude, as well as current moon phase and altitude.
 */
 
-/* Default location (Kotka, Finland) is used if none is provided. */
-#define DEFAULT_LNG 26.899722
-#define DEFAULT_LAT 60.469722
+/* Default location (Etu-Töölö, Helsinki, Finland) is used if none is provided. */
+#define DEFAULT_LNG 24.92365
+#define DEFAULT_LAT 60.17406
 
 /*
   The following file is generated at build time (see Makefile). It
