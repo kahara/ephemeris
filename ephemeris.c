@@ -23,8 +23,6 @@
 #define DEFAULT_LNG 26.899722
 #define DEFAULT_LAT 60.469722
 
-#define HTTP_HEADER "Content-Type: application/json;charset=us/ascii;\n\n"
-
 /*
   The following file is generated at build time (see Makefile). It
   includes MD5 checksum of this file (i.e. "ephemeris.c"), and is
@@ -84,8 +82,6 @@ int main(int argc, char **argv)
 
   observer.lat = req_lat;
   observer.lng = req_lng;
-
-  printf("%s", HTTP_HEADER);
 
   if(CACHE) {
     sprintf(filename, "/tmp/ephemeris-%s/%f-%f", fingerprint, req_lat, req_lng);
